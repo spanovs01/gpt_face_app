@@ -1,0 +1,8 @@
+Принцип работы дисплея
+https://bitbanksoftware.blogspot.com/2019/08/optimizing-access-to-serial-i2cspi.html
+
+Либа на дисплей
+
+https://github.com/pimoroni/st7789-python
+
+В папке examples в файле square находится скрипт для проверки дисплея
