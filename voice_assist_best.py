@@ -345,6 +345,7 @@ if __name__ == "__main__":
     # create a PyAudio object for audio streaming
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+           
    
                 # старт записи речи с последующим выводом распознанной речи и удалением записанного в микрофон аудио
     while True:
