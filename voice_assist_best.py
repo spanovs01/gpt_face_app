@@ -38,7 +38,12 @@ preview_config = picam2.create_preview_configuration(main={"size": (800, 600)})
 picam2.configure(preview_config)
 picam2.start()
 
+<<<<<<< HEAD
 
+=======
+messages = [
+]
+>>>>>>> 58d86de8720aaa331156c8d107814554c2055af5
 
 
 
