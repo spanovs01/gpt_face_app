@@ -15,6 +15,7 @@ from datetime import datetime
 import pyaudio
 import matplotlib.pyplot as plt
 import os
+import os.path
 import cv2
 from googletrans import Translator
 from picamera2 import MappedArray, Picamera2, Preview
@@ -72,7 +73,7 @@ def special_questions():
         
 openai.api_key = key()
 messages = []
-messages.append({"role": "system", "content": "Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит. Ты умеешь распознавать лица людей и другие объекты. Умеешь ходить. Умеешь фотографировать людей и показывать их лица на экране."})
+messages.append({"role": "system", "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит. Ты умеешь распознавать лица людей и другие объекты. Умеешь ходить. Умеешь фотографировать людей и показывать их лица на экране. Чтобы сделать фотографию, нужно сказать Сделай фото. If you are asked to find or detect  a face or human, write FaceDetect. If you are asked to take a photo write TakePhoto```"})
 
 def Trigger():
     ser.write(b'\x00')
@@ -98,7 +99,7 @@ def Trigger():
                 break
                 data=[]
            #     
-            else: ser.write(b'\x00')
+        else: ser.write(b'\x00')
                 
                         
 def record_and_recognize_audio(*args: tuple):
@@ -111,7 +112,6 @@ def record_and_recognize_audio(*args: tuple):
         
     ActiveFlag = False
     #RED LED ON
-    #ser.write(b'\x02')
                
 
     with microphone:
@@ -121,8 +121,10 @@ def record_and_recognize_audio(*args: tuple):
         recognizer.dynamic_energy_threshold = True
 
         try:
+            ser.write(b'\x02')
             print("Listening...")
             audio = recognizer.listen(microphone, 5, 5)
+            ser.write(b'\x00')
             with open("microphone-results.wav", "wb") as file:
                 file.write(audio.get_wav_data())    
         except speech_recognition.WaitTimeoutError:
@@ -155,12 +157,13 @@ def cGPT(messages, text):
     if len(text) < 1:
         return messages,""
    # promt = 'If you are asked to find or detect a face or human, write "FaceDetect". If you are asked to take a photo  write "TakePhoto". '
+    messages.append({"role": "system", "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит. Ты умеешь распознавать лица людей и другие объекты. Умеешь ходить. Умеешь фотографировать людей и показывать их лица на экране. Чтобы сделать фотографию, нужно сказать Сделай фото. If you are asked to find or detect  a face or human, write FaceDetect. If you are asked to take a photo write TakePhoto```"})
     messages.append({"role": "user", "content":  text})
     
     completion = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=messages,
-        temperature = 1
+        temperature = 0
         )
     
     chat_response = completion.choices[0].message.content
@@ -172,23 +175,23 @@ def cGPT(messages, text):
     split_response = chat_response.split("```")    
     print(split_response)
     current_datetime = datetime.now().strftime("%d%H%M%S")
-    
-    if chat_response.find("FaceDetect")!=-1:
-        Face_Detector()
-        return messages,chat_response
-    if chat_response.find("TakePhoto")!=-1:
+            
+    if chat_response.find("FaceDetect")!=-1 or chat_response.find("лицо")!=-1:
+        Face_Detector(True)
+        
+    elif chat_response.find("Сделай фото")!=-1 or chat_response.find("*щелк*")!=-1 or chat_response.find("TakePhoto")!=-1:
         TakePhoto()
-        return messages,chat_response
-    
-    for idx,word in enumerate(split_response):
-        if idx % 2 != 0:
-            with open(f'example{current_datetime}.txt', 'w+') as file:
-                file.write(chat_response)
-            play_voice_assistant_speech(f'Я сохранил код в файл example{current_datetime}.txt ')
-        else: 
-            play_voice_assistant_speech(word)
+        
+    else:
+        for idx,word in enumerate(split_response):
+                if idx % 2 != 0:
+                    with open(f'example{current_datetime}.txt', 'w+') as file:
+                        file.write(chat_response)
+                    play_voice_assistant_speech(f'Я сохранил код в файл example{current_datetime}.txt ')
+                else: 
+                    play_voice_assistant_speech(word)
+                
     return messages,chat_response
-
 def is_special(voice_input, special_questions):
     found = False
     special_answer = ""
@@ -268,15 +271,19 @@ def Display(text=""):
             if 'УЮ'.find(letter.upper()) >=0 : img = img_U_Y
             disp.display(img)
         while p01.poll()!=0:
-            print('Wait stop speaking')
+            #print('Wait stop speaking')
+            klm=0
             
     img = img_K_R_X
     
     disp.display(img)
-def Photo(name): 
-    picam2.capture_file(f"{name}.png")
+def Photo(name):
+    path = "/home/pi/Desktop/gpt_face_app/" + name + ".png"
+    picam2.capture_file(path)
+    while not os.path.exists(path):
+        picam2.capture_file(path)
     #img= Image.open(f"{name}.png")
-def TakePhoto(*args: tuple): 
+def TakePhoto(): 
     Photo("photo")
     DisplayIMG("photo")
 
@@ -285,52 +292,61 @@ def onlyFace():
     face_detector = cv2.CascadeClassifier("/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml")
     faces=[]
     while len(faces) == 0:
+        print(f"len(faces) = {len(faces)}")
         Photo('face')
         img= cv2.imread('face.png')
         faces = face_detector.detectMultiScale(img, 1.1, 3)
+        print(faces)
     (x, y, w, h) = faces[0]
     print(x,y,w,h)
     faces=[]
     
-def Face_Detector(*args: tuple):
-    
+def Face_Detector(display):                      # TODO: threshold на близость человека к голове
+    path_to_img = "/home/pi/Desktop/gpt_face_app/face.png"
     face_detector = cv2.CascadeClassifier("/usr/share/opencv4/haarcascades/haarcascade_frontalface_default.xml")
     faces=[]
     while len(faces) == 0:
+        print(f"len(faces) = {len(faces)}")
         Photo('face')
-        img= cv2.imread('face.png')
-        faces = face_detector.detectMultiScale(img, 1.1, 3)
+        if os.path.exists(path_to_img):
+            img= cv2.imread(path_to_img)
+            faces = face_detector.detectMultiScale(img, 1.1, 3) # TODO: неточная модельб видит лица там где их нет
+        print(faces)
+        time.sleep(5)
     (x, y, w, h) = faces[0]
     print(x,y,w,h)
     faces=[]
-
-    cv2.imwrite('face.png', img[y:y+h, x:x+w])
-    DisplayIMG('face')
+    cv2.imwrite(path_to_img, img[y:y+h, x:x+w])
+    if display:
+        DisplayIMG('face')
     
-def DisplayIMG(img):
-    img= Image.open(f"{img}.png")
-    display_type = "square"
-    
-    disp = ST7789.ST7789(
-    height= 240,
-    rotation= 90,
-    port=0,
-    cs=ST7789.BG_SPI_CS_FRONT,  # BG_SPI_CS_BACK or BG_SPI_CS_FRONT
-#         cs=ST7789.BG_SPI_CS_BACK,
-    dc=25,
-    backlight=24,               # 18 for back BG slot, 19 for front BG slot.
-    spi_speed_hz= 80 * 1000 * 1000,
-    offset_left = 0,
-    offset_top = 0
-    )
+def DisplayIMG(name):
+    path = "/home/pi/Desktop/gpt_face_app/" + name + ".png"
+    if os.path.exists(path):
+        print("ZASHEL")
+        img = Image.open(path)
+        display_type = "square"
+        
+        disp = ST7789.ST7789(
+        height= 240,
+        rotation= 90,
+        port=0,
+        cs=ST7789.BG_SPI_CS_FRONT,  # BG_SPI_CS_BACK or BG_SPI_CS_FRONT
+    #         cs=ST7789.BG_SPI_CS_BACK,
+        dc=25,
+        backlight=24,               # 18 for back BG slot, 19 for front BG slot.
+        spi_speed_hz= 80 * 1000 * 1000,
+        offset_left = 0,
+        offset_top = 0
+        )
 
-# Initialize display.
-    #disp.begin()
+    # Initialize display.
+        disp.begin()
 
-    WIDTH = disp.width
-    HEIGHT = disp.height
-    img = img.resize((disp.width, disp.height)) 
-    disp.display(img)
+        WIDTH = disp.width
+        HEIGHT = disp.height
+        img = img.resize((disp.width, disp.height)) 
+        disp.display(img)
 
     
     
@@ -349,7 +365,7 @@ if __name__ == "__main__":
    
                 # старт записи речи с последующим выводом распознанной речи и удалением записанного в микрофон аудио
     while True:
-        
+        Face_Detector(False)
         voice_input = record_and_recognize_audio()
         print("recognotion is done")
         if os.path.exists("microphone-results.wav"):
@@ -369,15 +385,21 @@ if __name__ == "__main__":
         else:
             ActiveFlag = True
         print(ActiveFlag)
-        list_of_questions = special_questions()
+        #list_of_questions = special_questions()
         
-        special, answer = is_special(voice_input, list_of_questions)
-        if special:
-            play_voice_assistant_speech(answer)
+        #special, answer = is_special(voice_input, list_of_questions)
+        #if special:
+         #   play_voice_assistant_speech(answer)
                     # отделение комманд от дополнительной информации (аргументов)
-        else:
-            messages,chat_response = cGPT(messages, voice_input)
+        #else:
+        messages, chat_response = cGPT(messages, voice_input)
+         
+        time.sleep(2)
         
+        #if os.path.exists("/home/pi/Desktop/gpt_face_app/photo.png"):
+         #   os.remove("/home/pi/Desktop/gpt_face_app/photo.png")
+        if os.path.exists("/home/pi/Desktop/gpt_face_app/face.png"):
+            os.remove("/home/pi/Desktop/gpt_face_app/face.png")
         '''
 
                     
