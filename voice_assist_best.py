@@ -38,7 +38,6 @@ preview_config = picam2.create_preview_configuration(main={"size": (800, 600)})
 picam2.configure(preview_config)
 picam2.start()
 
-openai.api_key = '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'
 messages = [
 ]
 
