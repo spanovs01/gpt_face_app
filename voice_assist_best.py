@@ -38,8 +38,7 @@ preview_config = picam2.create_preview_configuration(main={"size": (800, 600)})
 picam2.configure(preview_config)
 picam2.start()
 
-messages = [
-]
+
 
 
 
@@ -59,31 +58,47 @@ keyword_sound_file = "8df4abb9-e903-4a5f-8586-d3fcfd612d19-byVC.wav"
 
 ActiveFlag=False
 
+def key():
+    with open("gpt_code.txt", "r") as f:
+        key = f.readlines()[0][:-1]
+        print(key)
+    return key
+    
+def special_questions():
+    with open("list_of_special_questions.txt", "r") as f:
+        special_questions = f.readlines()
+        special_questions = [line[:-1] for i, line in enumerate(special_questions)]      
+    return special_questions
+        
+openai.api_key = key()
+messages = [
+]
 
 def Trigger():
     ser.write(b'\x00')
     while True:
-        onlyFace()
-        break
+        #onlyFace()
+        #break
         # read a chunk of audio data from the microphone
-      #  data = stream.read(CHUNK)
+        data = stream.read(CHUNK)
         
         # convert the data to a numpy array
-       # data = np.frombuffer(data, dtype=np.int16)
+        data = np.frombuffer(data, dtype=np.int16)
         # check if the audio is louder than the threshold
-        #print(abs(np.max(data)/16384))
+        print(abs(np.max(data)/16384))
         
-     #   if abs(np.max(data)/32768) > THRESHOLD:
+        if abs(np.max(data)/32768) > THRESHOLD:
             # compute the correlation between the keyword sound and the current audio data
-          #  corr = np.correlate(data.astype(np.float16), keyword_sound_data, 'same')
-         #   print(np.max(corr)/32768)
-         #   data=[]
+            corr = np.correlate(data.astype(np.float16), keyword_sound_data, 'same')
+            print(np.max(corr)/32768)
+            data=[]
 
-            #if np.max(corr) > 5895121400:
-    ser.write(b'\x02')
-            #    data=[]
+            if np.max(corr) > 5895121400:
+                ser.write(b'\x02')
+                break
+                data=[]
            #     
-           # else: ser.write(b'\x00')
+            else: ser.write(b'\x00')
                 
                         
 def record_and_recognize_audio(*args: tuple):
@@ -96,14 +111,14 @@ def record_and_recognize_audio(*args: tuple):
         
     ActiveFlag = False
     #RED LED ON
-    ser.write(b'\x02')
+    #ser.write(b'\x02')
                
 
     with microphone:
         recognized_data = ""
         # запоминание шумов окружения для последующей очистки звука от них
-        recognizer.adjust_for_ambient_noise(microphone, duration=5)
-        #recognizer.dynamic_energy_threshold = True
+        #recognizer.adjust_for_ambient_noise(microphone, duration=5)
+        recognizer.dynamic_energy_threshold = True
 
         try:
             print("Listening...")
@@ -112,15 +127,18 @@ def record_and_recognize_audio(*args: tuple):
                 file.write(audio.get_wav_data())    
         except speech_recognition.WaitTimeoutError:
             ActiveFlag = False
-            # play_voice_assistant_speech(("Can you check if your microphone is on, please?"))
+            play_voice_assistant_speech(("Can you check if your microphone is on, please?"))
             # traceback.print_exc()
             return ""
         # использование online-распознавания через Google (высокое качество распознавания)
         try:
             print("Started recognition...")
+            print("before recognition")
             recognized_data = recognizer.recognize_google(audio, language='ru').lower()
+            print("after recognition")
         except speech_recognition.UnknownValueError:
-            pass  # play_voice_assistant_speech("What did you say again?")
+            # pass 
+            play_voice_assistant_speech("What did you say again?")
         return recognized_data
 
 def get_translation(text, lang="ru"):
@@ -152,6 +170,7 @@ def cGPT(messages, text):
     
     #Обработка ответов
     split_response = chat_response.split("```")    
+    print(split_response)
     current_datetime = datetime.now().strftime("%d%H%M%S")
     
     if chat_response.find("FaceDetect")!=-1:
@@ -169,6 +188,17 @@ def cGPT(messages, text):
         else: 
             play_voice_assistant_speech(word)
     return messages,chat_response
+
+def is_special(voice_input, special_questions):
+    found = False
+    special_answer = ""
+    for i in range(0, len(special_questions), 2):
+        if voice_input == special_questions[i]:         # TODO: добавить оценку степени похожести вопросов
+            special_answer = special_questions[i+1]
+            found = True
+            break
+    
+    return found, special_answer
 
 def play_voice_assistant_speech(text_to_speech):
     global p01
@@ -321,6 +351,7 @@ if __name__ == "__main__":
     while True:
         
         voice_input = record_and_recognize_audio()
+        print("recognotion is done")
         if os.path.exists("microphone-results.wav"):
                 os.remove("microphone-results.wav")
         try:
@@ -338,9 +369,14 @@ if __name__ == "__main__":
         else:
             ActiveFlag = True
         print(ActiveFlag)
-
+        list_of_questions = special_questions()
+        
+        special, answer = is_special(voice_input, list_of_questions)
+        if special:
+            play_voice_assistant_speech(answer)
                     # отделение комманд от дополнительной информации (аргументов)
-        messages,chat_response = cGPT(messages, voice_input)
+        else:
+            messages,chat_response = cGPT(messages, voice_input)
         
         '''
 
