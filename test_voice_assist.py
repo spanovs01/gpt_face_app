@@ -1,4 +1,4 @@
-import openai
+import requests
 import speech_recognition  # распознавание пользовательской речи (Speech-To-Text)
 import asyncio
 import numpy as np
@@ -23,7 +23,6 @@ from picamera2 import MappedArray, Picamera2, Preview
 import serial, time
 import RPi.GPIO as GPIO
 
-
 ser = serial.Serial ('/dev/ttyAMA1') #Open named port
 ser.baudrate = 115200 #Set baud rate to 9600
 
@@ -42,10 +41,30 @@ keyword_sound_file = "key_phrase_Roki.wav"
 
 ActiveFlag=False
 
+#Display setting
+    
+display_type = "square"
+disp = ST7789.ST7789(
+height= 240,
+rotation= 90,
+port=0,
+cs=ST7789.BG_SPI_CS_FRONT, 
+dc=25,
+backlight=24,               
+spi_speed_hz= 80 * 1000 * 1000,
+offset_left = 0,
+offset_top = 0
+)
+
+# Initialize display.
+disp.begin()
+
+WIDTH = disp.width
+HEIGHT = disp.height
+
 def key():
     with open("gpt_code.txt", "r") as f:
         key = f.readlines()[0][:-1]
-        print(key)
     return key
     
 def special_questions():
@@ -53,12 +72,11 @@ def special_questions():
         special_questions = f.readlines()
         special_questions = [line[:-1] for i, line in enumerate(special_questions)]      
     return special_questions
-        
-openai.api_key = key()
+
 messages = []
 messages.append({"role": "system", "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит. Ты умеешь распознавать лица людей и другие объекты. Умеешь ходить. Умеешь фотографировать людей и показывать их лица на экране. Чтобы сделать фотографию, нужно сказать Сделай фото. If you are asked to find or detect  a face or human, write FaceDetect. If you are asked to take a photo write TakePhoto```"})
 
-def Trigger():
+def Trigger(keyword_sound_data):
     ser.write(b'\x00')
     while True:
         #onlyFace()
@@ -85,11 +103,11 @@ def Trigger():
         else: ser.write(b'\x00')
                 
                         
-def record_and_recognize_audio(*args: tuple):
+def record_and_recognize_audio(keyword):
     global ActiveFlag
     if not ActiveFlag:
         print("Waiting for a trigger")
-        Trigger()
+        Trigger(keyword)
 
         print("Keyword Detected!")
         
@@ -136,38 +154,72 @@ def get_translation(text, lang="ru"):
    
     
 def cGPT(messages, text):
-    
+    # Если текст пустой, возвращаем текущие сообщения и пустой ответ
     if len(text) < 1:
-        return messages,""
-   # promt = 'If you are asked to find or detect a face or human, write "FaceDetect". If you are asked to take a photo  write "TakePhoto". '
-    messages.append({"role": "system", "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит. Ты умеешь распознавать лица людей и другие объекты. Умеешь ходить. Умеешь фотографировать людей и показывать их лица на экране. Чтобы сделать фотографию, нужно сказать Сделай фото. If you are asked to find or detect  a face or human, write FaceDetect. If you are asked to take a photo write TakePhoto```"})
-    messages.append({"role": "user", "content":  text})
+        return messages, ""
+
+    # Добавляем системное сообщение и сообщение пользователя
+    messages.append({
+        "role": "system",
+        "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит.```"
+    })
+    messages.append({"role": "user", "content": text})
+
+    # Вызов API DeepSeek
+    API_KEY = key()  # Замените на ваш API-ключ
     
-    completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages,
-        temperature = 0
-        )
-    
-    chat_response = completion.choices[0].message.content
-    print(f'response: {chat_response}')
-    
+    url = "https://api.deepseek.com/chat/completions"
+
+    # Заголовки запроса
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {API_KEY}"
+    }
+
+    # Тело запроса
+    # data = {
+    #     "model": "deepseek-chat",
+    #     "messages": messages,
+    #     "stream": False
+    # }
+    data = {}
+    data["model"] = "deepseek-chat"
+    data["messages"] = messages
+    data["stream"] = False
+    data["temperature"] = 0
+    data["max_tokens"] = 150
+
+    # Отправка POST-запроса
+    response = requests.post(url, headers=headers, json=data)
+    print(response)
+    # Обработка ответа
+    if response.status_code == 200:
+        result = response.json()
+        chat_response = result["choices"][-1]["message"]["content"]
+    else:
+        print("Ошибка:", response.status_code, response.text)
+        return messages, ""
+
+    # Добавляем ответ ассистента в историю сообщений
     messages.append({"role": "assistant", "content": chat_response})
-    
-    #Обработка ответов
-    split_response = chat_response.split("```")    
+
+    # Обработка ответов
+    split_response = chat_response.split("```")
     print(split_response)
     current_datetime = datetime.now().strftime("%d%H%M%S")
-            
-    for idx,word in enumerate(split_response):
-            if idx % 2 != 0:
-                with open(f'example{current_datetime}.txt', 'w+') as file:
-                    file.write(chat_response)
-                play_voice_assistant_speech(f'Я сохранил код в файл example{current_datetime}.txt ')
-            else: 
-                play_voice_assistant_speech(word)
-                
-    return messages,chat_response
+
+    for idx, word in enumerate(split_response):
+        if idx % 2 != 0:
+            # Сохраняем код в файл
+            with open(f'example{current_datetime}.txt', 'w+') as file:
+                file.write(chat_response)
+            play_voice_assistant_speech(f'Я сохранил код в файл example{current_datetime}.txt')
+        else:
+            # Воспроизводим текст голосом
+            play_voice_assistant_speech(word)
+
+    return messages, chat_response
+    
 def is_special(voice_input, special_questions):
     found = False
     special_answer = ""
@@ -192,31 +244,11 @@ def play_voice_assistant_speech(text_to_speech):
     print(datetime.now())
     os.system(f'gtts-cli --nocheck -o sound.mp3 \"{text}\" -l ru') #'-ven-m1', '-a100','-s','140','-v', 'ru']
     print(datetime.now())
-    p01 =  subprocess.Popen(['play','sound.mp3']) 
-    Display(text)
+    p01 = subprocess.Popen(['play','sound.mp3'])
+    Display(text=text)
     
 def Display(text=""):
-    #Display setting
-    
-    display_type = "square"
-    disp = ST7789.ST7789(
-    height= 240,
-    rotation= 90,
-    port=0,
-    cs=ST7789.BG_SPI_CS_FRONT, 
-    dc=25,
-    backlight=24,               
-    spi_speed_hz= 80 * 1000 * 1000,
-    offset_left = 0,
-    offset_top = 0
-    )
-
-    # Initialize display.
-    disp.begin()
-
-    WIDTH = disp.width
-    HEIGHT = disp.height
-
+    global disp
     img_A_H = Image.open('/home/pi/Desktop/ST7789/examples/Emo/A-H.jpeg')
     img_C_I = Image.open('/home/pi/Desktop/ST7789/examples/Emo/C-I.jpeg')
     img_E_G_J = Image.open('/home/pi/Desktop/ST7789/examples/Emo/E-G-J.jpeg')
@@ -226,16 +258,16 @@ def Display(text=""):
     img_N_L_D_T = Image.open('/home/pi/Desktop/ST7789/examples/Emo/N-L-D-T.jpeg')
     img_O = Image.open('/home/pi/Desktop/ST7789/examples/Emo/O.jpeg')
     img_U_Y = Image.open('/home/pi/Desktop/ST7789/examples/Emo/U-Y.jpeg')
-    
+    img_initial = Image.open('/home/pi/Desktop/Startup/I_240_240_2.png')
+
     if len(text)>0:
         words = text.split(' ')
         WordTime=150/60
 
         for letter in text:
-            if p01.poll()==0:
-                break
-            time.sleep(0.03)
-            print(letter)
+            # print(letter)
+            # if p01.poll()==0:
+            #     break
             img = img_A_H
             if 'ИЙ'.find(letter.upper()) >=0 : img = img_C_I
             if 'EGJ'.find(letter.upper()) >=0 : img = img_E_G_J
@@ -246,11 +278,13 @@ def Display(text=""):
             if 'О'.find(letter.upper()) >=0 : img = img_O
             if 'УЮ'.find(letter.upper()) >=0 : img = img_U_Y
             disp.display(img)
-        while p01.poll()!=0:
-            #print('Wait stop speaking')
-            klm=0
+            time.sleep(0.06)
+        print("displaying letters [DONE]")
+        # while p01.poll()!=0:
+            # print('Wait stop speaking')
+            # klm=0
             
-    img = img_K_R_X
+    img = img_initial
     
     disp.display(img)
     
@@ -258,9 +292,11 @@ if __name__ == "__main__":
     ser.write(b'\x00')
     # load the keyword sound file
     samplerate, data = wavfile.read(keyword_sound_file)
+    RATE = samplerate
+    keyword = data
     print(samplerate)
-    keyword_sound_data = data.astype(np.float32)[:,0:1].reshape(1,-1)[0][59000:100000]
-    print(keyword_sound_data)
+    # keyword_sound_data = data.astype(np.float32)[:,0:1].reshape(1,-1)[0][59000:100000]
+    print(keyword)
    
     # create a PyAudio object for audio streaming
     audio = pyaudio.PyAudio()
@@ -269,14 +305,14 @@ if __name__ == "__main__":
    
                 # старт записи речи с последующим выводом распознанной речи и удалением записанного в микрофон аудио
     while True:
-        voice_input = record_and_recognize_audio()
+        voice_input = record_and_recognize_audio(keyword)
         print("recognotion is done")
         if os.path.exists("microphone-results.wav"):
-                os.remove("microphone-results.wav")
-        try:
-                os.remove("microphone-results.wav")
-        except Exception:
-            pass
+            os.remove("microphone-results.wav")
+        # try:
+        #         os.remove("microphone-results.wav")
+        # except Exception:
+        #     pass
             
         print(voice_input)
         if len(voice_input)<1:
