@@ -35,7 +35,7 @@ class VoiceAssistant():
         self.init_display()
         self.set_display_images()
         self.messages = []
-        self.messages.append({"role": "system", "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит.```"})
+        self.messages.append({"role": "system", "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит. Ты не можешь генерировать текст с такими символами как \n, * и тому подобное. Ты генерируешь только короткие ответы!```"})
         # create a PyAudio object for audio streaming
         self.audio = pyaudio.PyAudio()
         self.translator = Translator()
@@ -163,6 +163,7 @@ class VoiceAssistant():
                 print("Started recognition...")
                 print("before recognition")
                 recognized_data = self.recognizer.recognize_google(audio, language='ru').lower()
+                print(recognized_data)
                 print("after recognition")
             except speech_recognition.UnknownValueError:
                 # pass 
@@ -195,28 +196,32 @@ class VoiceAssistant():
         if len(text)>0:
             words = text.split(' ')
             WordTime=150/60
-
-            for letter in text:
-                # print(letter)
-                # if p01.poll()==0:
-                #     break
-                img = self.img_A_H
-                if 'ИЙ'.find(letter.upper()) >=0 : img = self.img_C_I
-                if 'EGJ'.find(letter.upper()) >=0 : img = self.img_E_G_J
-                if 'ФВСЧШЩЗ'.find(letter.upper()) >=0 : img = self.img_F_V_W_S_Z
-                if 'КР'.find(letter.upper()) >=0 : img = self.img_K_R_X
-                if 'МПБ'.find(letter.upper()) >=0 : img = self.img_M_P_B
-                if 'НЛДТ'.find(letter.upper()) >=0 : img = self.img_N_L_D_T
-                if 'О'.find(letter.upper()) >=0 : img = self.img_O
-                if 'УЮ'.find(letter.upper()) >=0 : img = self.img_U_Y
-                self.disp.display(img)
-                time.sleep(0.06)
+            for iter in range(len(text)):
+                if iter % 100 == 0:
+                    letter = text[iter]
+                    # print(letter)
+                    if self.p01.poll()==0:
+                        print("DONE displaying images")
+                        break
+                    img = self.img_A_H
+                    if 'ИЙ'.find(letter.upper()) >=0 : img = self.img_C_I
+                    if 'EGJ'.find(letter.upper()) >=0 : img = self.img_E_G_J
+                    if 'ФВСЧШЩЗ'.find(letter.upper()) >=0 : img = self.img_F_V_W_S_Z
+                    if 'КР'.find(letter.upper()) >=0 : img = self.img_K_R_X
+                    if 'МПБ'.find(letter.upper()) >=0 : img = self.img_M_P_B
+                    if 'НЛДТ'.find(letter.upper()) >=0 : img = self.img_N_L_D_T
+                    if 'О'.find(letter.upper()) >=0 : img = self.img_O
+                    if 'УЮ'.find(letter.upper()) >=0 : img = self.img_U_Y
+                    self.disp.display(img)
+                    time.sleep(1)
+                    print(img.size)
             print("displaying letters [DONE]")
-            # while p01.poll()!=0:
+            while self.p01.poll()!=0:
                 # print('Wait stop speaking')
                 # klm=0
+                pass
                 
-        img = self.img_initial
+        img = self.img_A_H
         self.disp.display(img)
     
     def cGPT(self, text):
@@ -266,6 +271,7 @@ class VoiceAssistant():
 
     def main(self):
         self.ser.write(b'\x00')
+        iter = 0
     
         self.stream = self.audio.open(format=self.FORMAT, channels=self.CHANNELS, rate=self.RATE, input=True, frames_per_buffer=self.CHUNK)
             
@@ -293,7 +299,12 @@ class VoiceAssistant():
             
             chat_response = self.cGPT(voice_input)
             print(f"answer: {chat_response}")
+
+            if iter > 10:
+                self.messages.pop(0)
+            self.stream.close()
             time.sleep(2)
+            iter += 1
                 
                         
 
@@ -304,7 +315,9 @@ class VoiceAssistant():
     
     
 if __name__ == "__main__":
-   
+    assistant = VoiceAssistant()
+    assistant.main()
+    '''
     # create a PyAudio object for audio streaming
     audio = pyaudio.PyAudio()
     stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
@@ -336,14 +349,14 @@ if __name__ == "__main__":
         print(f"answer: {chat_response}")
          
         time.sleep(2)
-        '''
+    
 
                     
-            
-
-            command = voice_input_split[0]
+           
+            # command = voice_input_split[0]
                     
                 
-            command_options = [str(input_part) for input_part in voice_input_split[1:len(voice_input_split)]]
+            # command_options = [str(input_part) for input_part in voice_input_split[1:len(voice_input_split)]]
                     
-            execute_command_with_name(command, command_options, text=voice_input)'''
+            # execute_command_with_name(command, command_options, text=voice_input)
+    '''
