@@ -57,6 +57,8 @@ class VoiceAssistant():
     def init_serial(self):
         self.ser = serial.Serial ('/dev/ttyAMA1') #Open named port
         self.ser.baudrate = 115200 #Set baud rate to 9600
+        self.ser_rgb = serial.Serial ('/dev/ttyAMA0') #Open named port
+        self.ser_rgb.baudrate = 115200 #Set baud rate to 9600
 
     def set_audio_params(self):
         self.CHUNK = 2048  # size of audio chunk for processing
@@ -68,6 +70,12 @@ class VoiceAssistant():
         self.keyword_sound_file = "key_phrase_Roki.wav"
 
     def init_display(self):
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(26, GPIO.OUT)
+        GPIO.output(26, GPIO.LOW)
+        # time.sleep(0.1)
+        GPIO.output(26, GPIO.HIGH)
+
         #Display setting
         # display_type = "square"
         self.disp = ST7789.ST7789(
@@ -147,10 +155,12 @@ class VoiceAssistant():
             self.recognizer.dynamic_energy_threshold = True
 
             try:
+                self.ser_rgb.write(b'\x02')#GREEN LED ON
                 self.ser.write(b'\x02')
                 print("Listening...")
                 audio = self.recognizer.listen(self.microphone, 5, 5)
                 self.ser.write(b'\x00')
+                self.ser_rgb.write(b'\x00')#GREEN LED OFF
                 with open("microphone-results.wav", "wb") as file:
                     file.write(audio.get_wav_data())    
             except speech_recognition.WaitTimeoutError:
@@ -197,24 +207,23 @@ class VoiceAssistant():
             words = text.split(' ')
             WordTime=150/60
             for iter in range(len(text)):
-                if iter % 100 == 0:
-                    letter = text[iter]
-                    # print(letter)
-                    if self.p01.poll()==0:
-                        print("DONE displaying images")
-                        break
-                    img = self.img_A_H
-                    if 'ИЙ'.find(letter.upper()) >=0 : img = self.img_C_I
-                    if 'EGJ'.find(letter.upper()) >=0 : img = self.img_E_G_J
-                    if 'ФВСЧШЩЗ'.find(letter.upper()) >=0 : img = self.img_F_V_W_S_Z
-                    if 'КР'.find(letter.upper()) >=0 : img = self.img_K_R_X
-                    if 'МПБ'.find(letter.upper()) >=0 : img = self.img_M_P_B
-                    if 'НЛДТ'.find(letter.upper()) >=0 : img = self.img_N_L_D_T
-                    if 'О'.find(letter.upper()) >=0 : img = self.img_O
-                    if 'УЮ'.find(letter.upper()) >=0 : img = self.img_U_Y
-                    self.disp.display(img)
-                    time.sleep(1)
-                    print(img.size)
+                # if iter % 5 == 0:
+                letter = text[iter]
+                # print(letter)
+                if self.p01.poll()==0:
+                    print("DONE displaying images")
+                    break
+                img = self.img_A_H
+                if 'ИЙ'.find(letter.upper()) >=0 : img = self.img_C_I
+                if 'EGJ'.find(letter.upper()) >=0 : img = self.img_E_G_J
+                if 'ФВСЧШЩЗ'.find(letter.upper()) >=0 : img = self.img_F_V_W_S_Z
+                if 'КР'.find(letter.upper()) >=0 : img = self.img_K_R_X
+                if 'МПБ'.find(letter.upper()) >=0 : img = self.img_M_P_B
+                if 'НЛДТ'.find(letter.upper()) >=0 : img = self.img_N_L_D_T
+                if 'О'.find(letter.upper()) >=0 : img = self.img_O
+                if 'УЮ'.find(letter.upper()) >=0 : img = self.img_U_Y
+                self.disp.display(img)
+                time.sleep(0.1)
             print("displaying letters [DONE]")
             while self.p01.poll()!=0:
                 # print('Wait stop speaking')
