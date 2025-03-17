@@ -165,6 +165,7 @@ class VoiceAssistant():
                     file.write(audio.get_wav_data())    
             except speech_recognition.WaitTimeoutError:
                 self.ActiveFlag = False
+                self.ser_rgb.write(b'\x00')#GREEN LED OFF
                 self.play_voice_assistant_speech(("Can you check if your microphone is on, please?"))
                 # traceback.print_exc()
                 return ""
