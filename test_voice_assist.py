@@ -32,10 +32,10 @@ class VoiceAssistant():
         self.microphone = speech_recognition.Microphone()
         self.set_audio_params()
         self.ActiveFlag=False
-        self.init_display()
         self.set_display_images()
+        self.init_display()
         self.messages = []
-        self.messages.append({"role": "system", "content": "```Тебя зовут Рокки, ты образовательная платформа по робототехнике. В тебе используются передовые нейросетевые технологии компьютерного зрения, а также реализованы современные подходы к решению задач ходьбы, игре в футбол и разговору с приятными людьми. Тебя создала компания Старкит. Ты не можешь генерировать текст с такими символами как \n, * и тому подобное. Ты генерируешь только короткие ответы!```"})
+        self.messages.append({"role": "system", "content": "```Ты находишься на стендe Московского Инновационного Кластера – на платформе для инноваций, инвестиций и технологий.  Тебя зовут РОБОКИТ,  ты высокотехнологичный робот-ассистент, разработан в  Московском физико-техническом институте (МФТИ, ФизТех) совместно с официальным индустриальным партнёром МФТИ - ООО «СТАРКИТ». Цифровая платформа i.moscow помогает столичным технологическим предпринимателям создавать, тестировать, масштабировать и выводить на новые рынки уникальные решения, объединяет передовые компании, стартапы и научные центры, развивающие инновации, помогает привлекать инвестиции, получать субсидии и гранты инновационным компаниям. Часто перечисляешь бренды участники фонда. В бренды участники фонда входят: 1. ООО «АКАДЕМИЯ Т» - Специализированные продукты для спортивного, лечебного питания и БАДы. 2. ФГБНУ «ВНИРО» - разработка и производство продукции с высоким содержанием биологически активных веществ на основе собственных научных разработок. 3. ООО «ДИСТРИБЬЮТЕРСКАЯ КОМПАНИЯ» - Натуральные яблочные батончики «Pate de Pomme» с различными вкусами. 4. ООО НИИ ПРОФИ.БИО. - ингредиенты для пищевой промышленности. 5. ООО ИНТЭВО 6. ООО ВИТАПРОМю 7. ООО ШЕЛЛДОН. 8. ООО АРТВКУС. 9. ООО СИНКОР. 10. ООО ОКОФЕ. 11. ООО ТФБ-ПАК. 12. ООО СОЛЬ ЖИЗНИ. 13. ООО БИОФУДЛАБ. Ты не можешь генерировать текст с такими символами как \n, * и тому подобное. Ты генерируешь только короткие ответы! ```"})
         # create a PyAudio object for audio streaming
         self.audio = pyaudio.PyAudio()
         self.translator = Translator()
@@ -92,7 +92,7 @@ class VoiceAssistant():
 
         # Initialize display.
         self.disp.begin()
-
+        self.disp.display(self.img_initial)
         # WIDTH = disp.width
         # HEIGHT = disp.height
     
@@ -106,7 +106,7 @@ class VoiceAssistant():
         self.img_N_L_D_T = Image.open('/home/pi/Desktop/ST7789/examples/Emo/N-L-D-T.jpeg')
         self.img_O = Image.open('/home/pi/Desktop/ST7789/examples/Emo/O.jpeg')
         self.img_U_Y = Image.open('/home/pi/Desktop/ST7789/examples/Emo/U-Y.jpeg')
-        self.img_initial = Image.open('/home/pi/Desktop/Startup/I_240_240_2.png')
+        self.img_initial = Image.open('/home/pi/Desktop/ST7789/examples/Emo/default_img.jpeg')
 
     def key(self):
         with open("gpt_code.txt", "r") as f:
@@ -141,7 +141,7 @@ class VoiceAssistant():
         if not self.ActiveFlag:
             print("Waiting for a trigger")
             self.Trigger()
-
+            self.play_start_speech()
             print("Keyword Detected!")
             
         self.ActiveFlag = False
@@ -203,6 +203,13 @@ class VoiceAssistant():
         self.p01 = subprocess.Popen(['play','sound.mp3'])
         self.Display(text=text)
 
+    def play_start_speech(self):
+        with open('welcom_speech.txt', 'r') as file:
+            text = file.read()
+        self.p01 = subprocess.Popen(['play','welcom.mp3'])
+        self.Display(text=text)
+
+
     def Display(self, text=""):
         if len(text)>0:
             words = text.split(' ')
@@ -231,7 +238,7 @@ class VoiceAssistant():
                 # klm=0
                 pass
                 
-        img = self.img_A_H
+        img = self.img_initial
         self.disp.display(img)
     
     def cGPT(self, text):
